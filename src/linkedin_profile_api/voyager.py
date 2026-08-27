@@ -258,9 +258,13 @@ async def fetch_raw(slug: str) -> tuple[dict, dict[str, dict], list[str]]:
     async with _fetch_gate:  # one LinkedIn conversation at a time
         _spend_budget()
         await _wait_turn()
-        # follow_redirects=False on purpose — see _raise_for_status.
+        # follow_redirects=False on purpose — see _raise_for_status. The jar is
+        # seeded from config rather than pinned as a header so LinkedIn's own
+        # set-cookie updates (lidc rotation) carry into the section calls.
         async with httpx.AsyncClient(
-            timeout=config.request_timeout(), follow_redirects=False
+            timeout=config.request_timeout(),
+            follow_redirects=False,
+            cookies=config.cookies(),
         ) as client:
             primary = await _fetch_primary(client, slug)
             profile = normalize.find_profile(primary, normalize.merge_index([primary]))
@@ -303,3 +307,33 @@ async def _get_profile(slug: str, url: str, refresh: bool) -> dict:
     result["_meta"]["elapsed_ms"] = round((time.monotonic() - started) * 1000)
     _cache_put(slug, result)
     return result
+
+
+async def check_session() -> dict:
+    """Cheap liveness probe for the LinkedIn session itself: one call to /me.
+
+    Worth having separately from /healthz, which only reports whether a cookie is
+    *configured*. A revoked cookie is still configured, and finding that out from
+    a reviewer's failed request is the wrong way round.
+
+    Deliberately outside the daily budget: one request, and knowing the session
+    is dead prevents far more traffic than it costs.
+    """
+    if not config.session_configured():
+        return {"valid": False, "reason": "No LI_AT/LI_JSESSIONID (or LI_COOKIE) configured."}
+    async with httpx.AsyncClient(
+        timeout=config.request_timeout(), follow_redirects=False, cookies=config.cookies()
+    ) as client:
+        try:
+            payload = await _get(client, "me", {}, "the session check")
+        except VoyagerError as exc:
+            return {"valid": False, "reason": exc.message, "error": exc.code}
+    holder = payload.get("data") or payload
+    profile = holder.get("miniProfile") or {}
+    return {
+        "valid": True,
+        "authenticated_as": (
+            f"{profile.get('firstName', '')} {profile.get('lastName', '')}".strip() or None
+        ),
+        "public_id": profile.get("publicIdentifier"),
+    }

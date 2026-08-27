@@ -21,6 +21,7 @@ an OAuth partner review.
 
 - [Quick start](#quick-start) · [Getting the cookies](#getting-the-cookies)
 - [API reference](#api-reference) · [Response schema](#response-schema)
+- [Session handling](#session-handling) — how long a cookie lasts, and why login is not automated
 - [Why not the official API?](#why-not-the-official-api) — the question this answers first
 - [Approach](#approach-how-this-was-reverse-engineered) — the interesting part
 - [Protecting the account](#protecting-the-linkedin-account)
@@ -64,6 +65,12 @@ The `csrf-token` header is derived from `JSESSIONID` automatically. If the two e
 disagree LinkedIn answers `403 CSRF check failed`, which is the single commonest way to
 get this wrong by hand.
 
+**Better still, set `LI_COOKIE` instead of those two.** Copy the entire `Cookie` request
+header from any linkedin.com request (DevTools → Network → a request → Request Headers →
+Cookie) and paste it as one value. It takes precedence, it cannot disagree with itself,
+and sessions survive longer when the request carries the same cookies the browser did —
+see [session handling](#session-handling).
+
 ---
 
 ## API reference
@@ -84,6 +91,12 @@ Returns `200` with the [response schema](#response-schema) below.
 
 Liveness plus current capability — whether a session is configured, whether a key is
 required, cache size, and today's remaining fetch budget. Never echoes a secret.
+
+### `GET /session`
+
+Whether the configured LinkedIn cookie still works, and which account it belongs to. See
+[session handling](#session-handling) — a revoked cookie is still a configured cookie, so
+`/healthz` alone cannot tell you. One upstream request, outside the daily budget.
 
 ### `GET /debug/types`
 
@@ -197,6 +210,90 @@ that were actually fetched. A partial result is never dressed up as a complete o
 The response is assembled as plain dicts rather than validated through strict response
 models on the way out. That is on purpose: this is an undocumented upstream, and a strict
 model meeting one unexpected field shape would turn an otherwise-good profile into a 500.
+
+---
+
+## Session handling
+
+The single operational question this project has, so it gets its own section.
+
+### How long does a session last?
+
+`li_at` is issued with about a year of nominal expiry. That number is close to
+meaningless. Sessions here do not die of old age, they get **revoked** — and the
+signature is unambiguous:
+
+```
+HTTP/2 302
+set-cookie: li_at=delete me; Max-Age=0
+```
+
+LinkedIn expiring the cookie it just accepted. During development a fresh cookie was
+revoked roughly ninety seconds after being issued, mid-fetch, on a brand-new account
+calling from an unfamiliar IP. Revocation follows behaviour, not time:
+
+| Trigger | Mitigation here |
+| --- | --- |
+| Bursty request patterns | Section calls run serially, `SECTION_DELAY` apart; profile fetches are spaced and jittered |
+| Requests unlike the browser the cookie came from | `LI_COOKIE` sends the browser's whole cookie header; the client keeps a jar so LinkedIn's `lidc` rotation is honoured |
+| IP or geography changing | Nothing to be done without a proxy — see below |
+| Repeated logins from new devices | Do not automate login; see below |
+| Volume | 6 h cache, daily budget |
+
+### So: refresh it, or regenerate it every time?
+
+**Refresh it manually, rarely.** Regenerating more often actively hurts — frequent logins
+from a datacenter IP are themselves one of the strongest revocation signals, and a new
+cookie carries exactly the same nominal expiry as the old one. There is nothing to gain.
+
+### Why login is not automated
+
+LinkedIn's internal `/uas/authenticate` endpoint exists, and older scraper libraries
+posted credentials to it. This project deliberately does not, for three reasons that have
+nothing to do with difficulty:
+
+1. **It usually fails anyway.** Automated login from a datacenter IP lands on
+   `/checkpoint/challenge` — a CAPTCHA, or an email/SMS PIN. A cold start that needs a
+   human to solve a CAPTCHA is not a working deployment.
+2. **It inverts the security posture.** A session cookie is revocable and narrow. A
+   password stored in a hosting provider's environment grants full account control,
+   including changing the password and the recovery email.
+3. **It increases the thing it was meant to avoid.** More logins means more revocations.
+
+The trade is one manual paste that lasts weeks against an automated flow that trips a
+challenge on every restart and risks a permanent account restriction.
+
+Commercial services do solve this properly (Unipile, Prospeo, Bright Data and others
+manage LinkedIn account connections, checkpoints and residential egress). That is the
+correct answer for a product; it costs money and sidesteps the reverse-engineering this
+exercise is about.
+
+### Knowing before your users do
+
+`GET /healthz` reports whether a cookie is *configured*. A revoked cookie is still
+configured, so it also needs:
+
+```bash
+curl -s -H "x-api-key: $API_KEY" "$BASE_URL/session"
+```
+
+```jsonc
+{ "valid": true, "authenticated_as": "Jane Doe", "public_id": "janedoe" }
+// or
+{ "valid": false, "error": "linkedin_session_invalid",
+  "reason": "LinkedIn has revoked this session (it expired the li_at cookie …)" }
+```
+
+One request, outside the daily budget, because discovering a dead session from a failed
+user request is the wrong way round. When it reads `false`, log in via a browser, clear any
+checkpoint, and paste a fresh `LI_COOKIE` into the host's dashboard.
+
+### Deploying to a different country from where you logged in
+
+Worth stating plainly: a cookie created on a home connection and replayed from a cloud
+region on another continent is a textbook revocation trigger. A single-instance demo with
+periodic manual refreshes is the honest shape of this without residential proxies, and
+that is what this is.
 
 ---
 

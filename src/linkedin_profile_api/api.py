@@ -112,3 +112,14 @@ async def debug_types(
         },
         "warnings": warnings,
     }
+
+
+@app.get("/session", summary="Is the LinkedIn session still alive?")
+async def session(x_api_key: str | None = Header(None)) -> dict:
+    """Whether the configured cookie still works, and who it belongs to.
+
+    `/healthz` reports only that a cookie is *set*; a revoked cookie is still
+    set. Check this before a demo — one request, outside the daily budget.
+    """
+    require_key(x_api_key)
+    return await voyager.check_session()

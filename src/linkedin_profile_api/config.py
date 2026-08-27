@@ -62,12 +62,54 @@ def api_key() -> str:
     return os.getenv("API_KEY", "").strip()
 
 
+def li_cookie() -> str:
+    """A whole browser Cookie header, pasted verbatim (optional).
+
+    Preferred over LI_AT/LI_JSESSIONID when available. LinkedIn weighs how
+    consistent a request looks against the browser the session came from, and a
+    request carrying only two of the browser's dozen cookies does not look
+    consistent. Copying the entire Cookie header from a real request in DevTools
+    reproduces it exactly — including bcookie/bscookie (browser identity) and
+    lidc (datacenter routing), whose absence causes the self-redirects we saw.
+    """
+    return os.getenv("LI_COOKIE", "").strip()
+
+
+def parse_cookie_header(header: str) -> dict[str, str]:
+    """`a=1; b="2"` -> {"a": "1", "b": '"2"'}. Values keep their quotes."""
+    jar = {}
+    for part in header.split(";"):
+        name, _, value = part.strip().partition("=")
+        if name and value:
+            jar[name.strip()] = value.strip()
+    return jar
+
+
+def cookies() -> dict[str, str]:
+    """The cookie jar to send. LI_COOKIE wins; otherwise the two-cookie minimum."""
+    if li_cookie():
+        jar = parse_cookie_header(li_cookie())
+        jar.setdefault("li_at", li_at())
+        return {name: value for name, value in jar.items() if value}
+    return {"li_at": li_at(), "JSESSIONID": f'"{csrf_token()}"'}
+
+
 def csrf_token() -> str:
-    """LinkedIn's CSRF token is just JSESSIONID without its quotes."""
+    """LinkedIn's CSRF token is JSESSIONID without its quotes.
+
+    Read out of LI_COOKIE when that is how the session was supplied, so the two
+    can never disagree — a mismatch is exactly `403 CSRF check failed`.
+    """
+    if li_cookie():
+        found = parse_cookie_header(li_cookie()).get("JSESSIONID", "")
+        if found:
+            return found.strip('"')
     return li_jsessionid().strip('"')
 
 
 def session_configured() -> bool:
+    if li_cookie():
+        return bool(csrf_token() and cookies().get("li_at"))
     return bool(li_at() and li_jsessionid())
 
 
@@ -110,6 +152,10 @@ LI_LANG = _env("LI_LANG", "en_US")
 def headers() -> dict[str, str]:
     """Voyager rejects a request missing any of these.
 
+    Cookies are deliberately absent — they live in the client's jar (see
+    `cookies()`) so that LinkedIn's own set-cookie updates apply to later calls
+    instead of being overwritten by a static header.
+
     `accept: application/vnd.linkedin.normalized+json+2.1` is the important one:
     it makes LinkedIn answer with a flat `included` entity table instead of a
     nested tree, which is what the normalizer is built around.
@@ -121,9 +167,6 @@ def headers() -> dict[str, str]:
         "x-li-lang": LI_LANG,
         "x-restli-protocol-version": "2.0.0",
         "csrf-token": csrf_token(),
-        # Always re-quote JSESSIONID: the browser cookie carries quotes, and
-        # accepting either paste style removes the commonest setup mistake.
-        "cookie": f'li_at={li_at()}; JSESSIONID="{csrf_token()}"',
         "referer": "https://www.linkedin.com/feed/",
     }
 
