@@ -116,6 +116,16 @@ def _raise_for_status(response: httpx.Response, what: str) -> None:
     status = response.status_code
     if status < 300:
         return
+    # LinkedIn revokes a session by 302-ing and expiring the cookie it just
+    # rejected. Unmistakable, and worth its own message: the cookie is not stale,
+    # it has been actively killed, and re-pasting the same value cannot work.
+    if any("li_at=delete me" in header for header in response.headers.get_list("set-cookie")):
+        raise SessionInvalid(
+            f"LinkedIn has revoked this session (it expired the li_at cookie while answering "
+            f"{what}). This usually follows automated access from an unfamiliar IP. Log in to "
+            "the account in a browser, clear any security checkpoint, then copy a fresh li_at "
+            "and JSESSIONID. Re-pasting the old value will not work."
+        )
     if 300 <= status < 400:
         # Voyager redirects to the login page when the session is dead. Never
         # follow it: the auth wall answers with a 403, or worse a 200 HTML page,
@@ -185,30 +195,41 @@ async def _fetch_primary(client: httpx.AsyncClient, slug: str) -> dict:
 async def _fetch_sections(
     client: httpx.AsyncClient, profile_urn: str
 ) -> tuple[dict[str, dict], list[str]]:
-    """The nine section calls. A section that fails degrades only itself.
+    """The nine section calls, one at a time with a gap between them.
 
-    Opening a real profile page fires a burst of Voyager calls, so a small burst
-    here looks more like a browser than nine calls spaced minutes apart. The
-    per-*profile* spacing is enforced by the caller.
+    An earlier version fired these three-at-a-time on the theory that a browser
+    opening a profile also bursts. It does — but a browser has months of history
+    on that IP, and a fresh account making the same burst from a datacenter got
+    its session revoked mid-fetch (LinkedIn answered `set-cookie: li_at=delete
+    me` partway through). Serial and spaced is slower and survives, which is the
+    trade that matters when the account is the scarce resource.
+
+    A section that fails degrades only itself.
     """
     warnings: list[str] = []
     payloads: dict[str, dict] = {}
-    gate = asyncio.Semaphore(3)
 
-    async def one(key: str, resource: str) -> None:
-        async with gate:
-            await asyncio.sleep(random.uniform(0.1, 0.5))  # noqa: S311 — jitter, not crypto
-            try:
-                payloads[key] = await _get(
-                    client,
-                    f"identity/dash/{resource}",
-                    {"q": "viewee", "profileUrn": profile_urn},
-                    f"the {key} section",
-                )
-            except VoyagerError as exc:
-                warnings.append(f"{key}: not fetched — {exc.message}")
+    for index, (key, resource) in enumerate(config.SECTIONS.items()):
+        if index:
+            await asyncio.sleep(config.section_delay() + random.uniform(0, 0.6))  # noqa: S311
+        try:
+            payloads[key] = await _get(
+                client,
+                f"identity/dash/{resource}",
+                {"q": "viewee", "profileUrn": profile_urn},
+                f"the {key} section",
+            )
+        except SessionInvalid:
+            # The session died mid-fetch; the remaining calls would only add
+            # pressure to an account that is already in trouble.
+            warnings.append(
+                f"{key} and any later section: abandoned — LinkedIn ended the session "
+                "part-way through. The sections above are still valid."
+            )
+            break
+        except VoyagerError as exc:
+            warnings.append(f"{key}: not fetched — {exc.message}")
 
-    await asyncio.gather(*(one(key, res) for key, res in config.SECTIONS.items()))
     return payloads, warnings
 
 

@@ -169,3 +169,26 @@ def test_status_mapping_covers_every_voyager_answer(status):
         429: voyager.RateLimited, 999: voyager.RateLimited,
     }.get(status, voyager.VoyagerError)
     assert type(caught.value) is expected
+
+
+def test_revoked_session_is_named_as_such():
+    """LinkedIn expires the cookie it just rejected; say so, because re-pasting
+    the same value cannot fix it and that is the obvious thing to try."""
+    import httpx
+
+    response = httpx.Response(
+        302,
+        headers=[("set-cookie", "li_at=delete me; Max-Age=0")],
+        request=httpx.Request("GET", "https://x/"),
+    )
+    with pytest.raises(voyager.SessionInvalid, match="revoked"):
+        voyager._raise_for_status(response, "a call")
+
+
+def test_sections_are_fetched_serially_not_burst():
+    """Concurrency here got a real session revoked mid-fetch. Guard the fix."""
+    import inspect
+
+    source = inspect.getsource(voyager._fetch_sections)
+    assert "asyncio.gather" not in source, "section calls must not run concurrently"
+    assert "section_delay" in source, "section calls must be spaced"

@@ -144,5 +144,10 @@ def daily_fetch_budget() -> int:
     return _int("DAILY_FETCH_BUDGET", 300)
 
 
+def section_delay() -> float:
+    """Gap between the nine per-section calls for one profile."""
+    return _float("SECTION_DELAY", 2.0)
+
+
 def request_timeout() -> float:
     return _float("REQUEST_TIMEOUT", 20.0)
