@@ -1,0 +1,209 @@
+{
+  "_note": "Synthetic, in the exact shape Voyager returns for accept: application/vnd.linkedin.normalized+json+2.1 — a flat `included` entity table plus `*elements` URN references for order. Same file layout `python -m linkedin_profile_api.capture --out` writes, so a real capture can replace this. Person is fictional; no real profile data is committed.",
+  "primary": {
+    "data": {
+      "$type": "com.linkedin.restli.common.CollectionResponse",
+      "*elements": ["urn:li:fsd_profile:ACoAAAtest01"]
+    },
+    "included": [
+      {
+        "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+        "entityUrn": "urn:li:fsd_profile:ACoAAAtest01",
+        "firstName": "Ada",
+        "lastName": "Lovelace",
+        "headline": "Mathematician | Analytical Engine notes",
+        "summary": "Wrote the first algorithm intended for a machine.",
+        "publicIdentifier": "adalovelace",
+        "location": {"countryCode": "gb", "postalCode": "SW1A 1AA"},
+        "geoLocation": {"*geo": "urn:li:fsd_geo:102257491"},
+        "*industry": "urn:li:fsd_industry:4",
+        "premium": true,
+        "influencer": false,
+        "pronoun": "SHE_HER",
+        "followerCount": 4212,
+        "profilePicture": {
+          "frameType": "OPEN_TO_WORK",
+          "displayImageReference": {
+            "vectorImage": {
+              "rootUrl": "https://media.licdn.com/dms/image/v2/PROFILE/",
+              "artifacts": [
+                {"width": 800, "height": 800, "fileIdentifyingUrlPathSegment": "photo_800.jpg"},
+                {"width": 100, "height": 100, "fileIdentifyingUrlPathSegment": "photo_100.jpg"},
+                {"width": 400, "height": 400, "fileIdentifyingUrlPathSegment": "photo_400.jpg"}
+              ]
+            }
+          }
+        },
+        "backgroundPicture": {
+          "displayImageReference": {
+            "vectorImage": {
+              "rootUrl": "https://media.licdn.com/dms/image/v2/BG/",
+              "artifacts": [
+                {"width": 1400, "height": 350, "fileIdentifyingUrlPathSegment": "cover_1400.jpg"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "$type": "com.linkedin.voyager.dash.common.Geo",
+        "entityUrn": "urn:li:fsd_geo:102257491",
+        "defaultLocalizedName": "London, England, United Kingdom"
+      },
+      {
+        "$type": "com.linkedin.voyager.dash.common.Industry",
+        "entityUrn": "urn:li:fsd_industry:4",
+        "name": "Software Development"
+      },
+      {
+        "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+        "entityUrn": "urn:li:fsd_profilePosition:(ACoAAAtest01,1)",
+        "title": "Analyst"
+      }
+    ]
+  },
+  "sections": {
+    "experience": {
+      "data": {
+        "*elements": [
+          "urn:li:fsd_profilePosition:(ACoAAAtest01,1)",
+          "urn:li:fsd_profilePosition:(ACoAAAtest01,2)"
+        ]
+      },
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+          "entityUrn": "urn:li:fsd_profilePosition:(ACoAAAtest01,1)",
+          "title": "Principal Mathematician",
+          "companyName": "Analytical Engine Works",
+          "*company": "urn:li:fsd_company:1441",
+          "employmentTypeUrn": "urn:li:fsd_employmentType:FULL_TIME",
+          "locationName": "London, United Kingdom",
+          "description": "Notes on the Engine, including Note G.",
+          "dateRange": {"start": {"month": 6, "year": 2020}}
+        },
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+          "entityUrn": "urn:li:fsd_profilePosition:(ACoAAAtest01,2)",
+          "title": "Correspondent",
+          "companyName": "Royal Society",
+          "dateRange": {"start": {"month": 1, "year": 2016}, "end": {"month": 5, "year": 2020}}
+        },
+        {
+          "$type": "com.linkedin.voyager.dash.organization.Company",
+          "entityUrn": "urn:li:fsd_company:1441",
+          "name": "Analytical Engine Works",
+          "url": "https://www.linkedin.com/company/analytical-engine-works/",
+          "logo": {
+            "vectorImage": {
+              "rootUrl": "https://media.licdn.com/dms/image/v2/LOGO/",
+              "artifacts": [
+                {"width": 200, "height": 200, "fileIdentifyingUrlPathSegment": "logo_200.png"}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "education": {
+      "data": {"*elements": ["urn:li:fsd_profileEducation:(ACoAAAtest01,10)"]},
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Education",
+          "entityUrn": "urn:li:fsd_profileEducation:(ACoAAAtest01,10)",
+          "schoolName": "University of London",
+          "*school": "urn:li:fsd_school:5678",
+          "degreeName": "BSc",
+          "fieldOfStudy": "Mathematics",
+          "grade": "First",
+          "activities": "Mathematical Society",
+          "dateRange": {"start": {"year": 2012}, "end": {"year": 2015}}
+        },
+        {
+          "$type": "com.linkedin.voyager.dash.organization.School",
+          "entityUrn": "urn:li:fsd_school:5678",
+          "name": "University of London"
+        }
+      ]
+    },
+    "skills": {
+      "data": {
+        "*elements": [
+          "urn:li:fsd_profileSkill:(ACoAAAtest01,20)",
+          "urn:li:fsd_profileSkill:(ACoAAAtest01,21)"
+        ]
+      },
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+          "entityUrn": "urn:li:fsd_profileSkill:(ACoAAAtest01,20)",
+          "name": "Algorithms",
+          "endorsementCount": 99
+        },
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+          "entityUrn": "urn:li:fsd_profileSkill:(ACoAAAtest01,21)",
+          "name": "Technical Writing"
+        }
+      ]
+    },
+    "certifications": {
+      "data": {"*elements": ["urn:li:fsd_profileCertification:(ACoAAAtest01,30)"]},
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Certification",
+          "entityUrn": "urn:li:fsd_profileCertification:(ACoAAAtest01,30)",
+          "name": "Certified Punch Card Operator",
+          "authority": "Institute of Computation",
+          "licenseNumber": "PC-1843",
+          "url": "https://example.org/cert/PC-1843",
+          "dateRange": {"start": {"month": 3, "year": 2021}}
+        }
+      ]
+    },
+    "languages": {
+      "data": {},
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+          "entityUrn": "urn:li:fsd_profileLanguage:(ACoAAAtest01,40)",
+          "name": "English",
+          "proficiency": "NATIVE_OR_BILINGUAL"
+        },
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+          "entityUrn": "urn:li:fsd_profileLanguage:(ACoAAAtest01,41)",
+          "name": "French",
+          "proficiency": "PROFESSIONAL_WORKING"
+        }
+      ]
+    },
+    "projects": {"data": {"*elements": []}, "included": []},
+    "honors": {
+      "data": {"*elements": ["urn:li:fsd_profileHonor:(ACoAAAtest01,50)"]},
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.Honor",
+          "entityUrn": "urn:li:fsd_profileHonor:(ACoAAAtest01,50)",
+          "title": "Note G Prize",
+          "issuer": "Royal Society",
+          "issueDate": {"month": 11, "year": 2022}
+        }
+      ]
+    },
+    "volunteer": {
+      "data": {"*elements": ["urn:li:fsd_profileVolunteerExperience:(ACoAAAtest01,60)"]},
+      "included": [
+        {
+          "$type": "com.linkedin.voyager.dash.identity.profile.VolunteerExperience",
+          "entityUrn": "urn:li:fsd_profileVolunteerExperience:(ACoAAAtest01,60)",
+          "role": "Mentor",
+          "companyName": "Girls Who Compute",
+          "cause": "SCIENCE_AND_TECHNOLOGY",
+          "dateRange": {"start": {"year": 2021}}
+        }
+      ]
+    },
+    "publications": {"data": {"*elements": []}, "included": []}
+  }
+}

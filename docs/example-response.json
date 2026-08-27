@@ -1,0 +1,205 @@
+{
+  "url": "https://www.linkedin.com/in/adalovelace/",
+  "public_id": "adalovelace",
+  "urn": "urn:li:fsd_profile:ACoAAAtest01",
+  "fetched_at": "2026-08-27T09:28:23+00:00",
+  "profile": {
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "full_name": "Ada Lovelace",
+    "headline": "Mathematician | Analytical Engine notes",
+    "about": "Wrote the first algorithm intended for a machine.",
+    "location": {
+      "name": "London, England, United Kingdom",
+      "country": "GB",
+      "postal_code": "SW1A 1AA"
+    },
+    "industry": "Software Development",
+    "pronouns": "She Her",
+    "premium": true,
+    "influencer": false,
+    "open_to_work": true,
+    "follower_count": 4212,
+    "images": {
+      "profile_picture": {
+        "url": "https://media.licdn.com/dms/image/v2/PROFILE/photo_800.jpg",
+        "sizes": [
+          {
+            "width": 100,
+            "height": 100,
+            "url": "https://media.licdn.com/dms/image/v2/PROFILE/photo_100.jpg"
+          },
+          {
+            "width": 400,
+            "height": 400,
+            "url": "https://media.licdn.com/dms/image/v2/PROFILE/photo_400.jpg"
+          },
+          {
+            "width": 800,
+            "height": 800,
+            "url": "https://media.licdn.com/dms/image/v2/PROFILE/photo_800.jpg"
+          }
+        ]
+      },
+      "background": {
+        "url": "https://media.licdn.com/dms/image/v2/BG/cover_1400.jpg",
+        "sizes": [
+          {
+            "width": 1400,
+            "height": 350,
+            "url": "https://media.licdn.com/dms/image/v2/BG/cover_1400.jpg"
+          }
+        ]
+      }
+    }
+  },
+  "experience": [
+    {
+      "title": "Principal Mathematician",
+      "company": "Analytical Engine Works",
+      "company_urn": "urn:li:fsd_company:1441",
+      "company_url": "https://www.linkedin.com/company/analytical-engine-works/",
+      "company_logo": {
+        "url": "https://media.licdn.com/dms/image/v2/LOGO/logo_200.png",
+        "sizes": [
+          {
+            "width": 200,
+            "height": 200,
+            "url": "https://media.licdn.com/dms/image/v2/LOGO/logo_200.png"
+          }
+        ]
+      },
+      "employment_type": "Full Time",
+      "location": "London, United Kingdom",
+      "description": "Notes on the Engine, including Note G.",
+      "start": {
+        "year": 2020,
+        "month": 6,
+        "day": null,
+        "text": "2020-06"
+      },
+      "current": true,
+      "duration_months": 75
+    },
+    {
+      "title": "Correspondent",
+      "company": "Royal Society",
+      "start": {
+        "year": 2016,
+        "month": 1,
+        "day": null,
+        "text": "2016-01"
+      },
+      "end": {
+        "year": 2020,
+        "month": 5,
+        "day": null,
+        "text": "2020-05"
+      },
+      "current": false,
+      "duration_months": 53
+    }
+  ],
+  "education": [
+    {
+      "school": "University of London",
+      "school_urn": "urn:li:fsd_school:5678",
+      "degree": "BSc",
+      "field_of_study": "Mathematics",
+      "grade": "First",
+      "activities": "Mathematical Society",
+      "start": {
+        "year": 2012,
+        "month": null,
+        "day": null,
+        "text": "2012"
+      },
+      "end": {
+        "year": 2015,
+        "month": null,
+        "day": null,
+        "text": "2015"
+      }
+    }
+  ],
+  "skills": [
+    {
+      "name": "Algorithms",
+      "endorsement_count": 99
+    },
+    {
+      "name": "Technical Writing"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Certified Punch Card Operator",
+      "authority": "Institute of Computation",
+      "license_number": "PC-1843",
+      "url": "https://example.org/cert/PC-1843",
+      "start": {
+        "year": 2021,
+        "month": 3,
+        "day": null,
+        "text": "2021-03"
+      }
+    }
+  ],
+  "languages": [
+    {
+      "name": "English",
+      "proficiency": "Native Or Bilingual"
+    },
+    {
+      "name": "French",
+      "proficiency": "Professional Working"
+    }
+  ],
+  "projects": [],
+  "honors": [
+    {
+      "title": "Note G Prize",
+      "issuer": "Royal Society",
+      "date": {
+        "year": 2022,
+        "month": 11,
+        "day": null,
+        "text": "2022-11"
+      }
+    }
+  ],
+  "volunteer": [
+    {
+      "role": "Mentor",
+      "organization": "Girls Who Compute",
+      "cause": "Science And Technology",
+      "start": {
+        "year": 2021,
+        "month": null,
+        "day": null,
+        "text": "2021"
+      }
+    }
+  ],
+  "publications": [],
+  "_meta": {
+    "source": "linkedin.voyager.identity.dash",
+    "section_counts": {
+      "experience": 2,
+      "education": 1,
+      "skills": 2,
+      "certifications": 1,
+      "languages": 2,
+      "projects": 0,
+      "honors": 1,
+      "volunteer": 1,
+      "publications": 0
+    },
+    "warnings": [
+      "projects: LinkedIn returned no entries — either the profile has none, or it is not visible to this account.",
+      "publications: LinkedIn returned no entries — either the profile has none, or it is not visible to this account."
+    ],
+    "cache": "miss",
+    "elapsed_ms": 4127
+  }
+}

@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+tests
+captures
+.env
+.DS_Store
+# NB: README.md is NOT excluded — pyproject reads it for package metadata.

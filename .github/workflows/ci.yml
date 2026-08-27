@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      # No LinkedIn credentials are configured, and none are needed: the suite
+      # stubs the one function that talks to LinkedIn, so a failure here is a
+      # real defect rather than a missing secret.
+      - name: Test
+        run: pytest -q
+
+      - name: Smoke-test the app boots
+        run: python -c "from linkedin_profile_api.api import app; print(app.title)"

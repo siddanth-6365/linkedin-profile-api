@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "linkedin-profile-api"
+version = "1.0.0"
+description = "Turns a LinkedIn profile URL into structured JSON, via LinkedIn's internal Voyager API."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+keywords = ["linkedin", "voyager", "scraping", "reverse-engineering", "fastapi"]
+dependencies = [
+  # httpx over urllib: cookies, redirects, gzip/brotli decoding and per-request
+  # timeouts all come for free, and Voyager needs every one of them.
+  "httpx>=0.27",
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff==0.14.5"]  # pinned: isort grouping shifts between versions
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/linkedin_profile_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 96
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["linkedin_profile_api", "tests"]
