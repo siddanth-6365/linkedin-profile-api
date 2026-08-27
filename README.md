@@ -15,6 +15,11 @@ an OAuth partner review.
 - **Live:** `<LIVE_URL>` · interactive docs at `<LIVE_URL>/docs`
 - **Full example response:** [docs/example-response.json](docs/example-response.json)
 
+Verified end to end against live LinkedIn: all ten calls succeeding, nine of nine
+sections fetched with zero failures, names, headlines, about text, locations and
+industries resolved through URN references, profile and banner images in four size
+variants each, and company logos on every position.
+
 ---
 
 ## Contents
@@ -416,6 +421,39 @@ company logo, and a school logo, so the code searches for the *shape*
 A section call that fails degrades only that section and records a warning; it never
 fails the whole response. Getting nine sections and losing `languages` is a good outcome
 worth returning.
+
+### Pagination, which is easy to miss
+
+Every section response carries paging metadata:
+
+```jsonc
+"paging": { "count": 20, "start": 0, "total": 2 }
+```
+
+`count: 20` is the page size, and `total` is the real number of entries. Reading only the
+first page returns a **complete-looking** answer that silently drops everything past the
+twentieth skill or position — the worst class of bug, because nothing in the response
+looks wrong. Sections are therefore paged to exhaustion, capped at five pages, and the cap
+is reported in `_meta.warnings` if it is ever hit rather than applied quietly.
+
+`paging.total` also makes empty sections explicable. `total: 0` means the profile genuinely
+has no entries, so no warning is emitted; an empty section with no total means it was not
+visible to this session, which is worth saying. That distinction is why an empty `skills`
+array can be trusted.
+
+### Looking like the client LinkedIn expects
+
+Voyager's own front end identifies itself on every call, and sending nothing where it sends
+something is free evidence of not being a browser. Requests carry `x-li-track` (client
+version, timezone, form factor), a per-request `x-li-page-instance`, and the
+fetch-metadata and client-hint headers Chrome sends. The user-agent and `sec-ch-ua` are
+pinned to the same Chrome version, because claiming one version in the UA and another in
+the client hints is a worse signal than sending neither.
+
+This is measurable, not superstition. With only `li_at` + `JSESSIONID` and a
+three-at-a-time section burst, a live session was revoked mid-fetch and five of nine
+sections were lost. With the full cookie jar, serial pacing and these headers, the same
+account fetched nine of nine sections with no failures.
 
 ### What is designed to be changed without a code change
 
