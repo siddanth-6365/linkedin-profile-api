@@ -16,7 +16,7 @@ USER app
 
 EXPOSE 8000
 
-# Shell form so Railway's injected $PORT expands. 0.0.0.0 because a container
-# bound to localhost is unreachable from Railway's proxy ("Application failed to
-# respond"); the :-8000 default keeps plain `docker run -p 8000:8000` working.
+# Shell form so the host's injected $PORT expands (Render defaults it to 10000).
+# 0.0.0.0 because Render requires it — a container bound to localhost gets no
+# traffic; the :-8000 default keeps plain `docker run -p 8000:8000` working.
 CMD ["sh", "-c", "uvicorn linkedin_profile_api.api:app --host 0.0.0.0 --port ${PORT:-8000}"]

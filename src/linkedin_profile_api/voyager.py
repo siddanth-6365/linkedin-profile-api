@@ -63,7 +63,7 @@ class NotConfigured(VoyagerError):
 
 
 # --- politeness state --------------------------------------------------------
-# ponytail: process-local. One Railway instance, so a dict is the whole design;
+# ponytail: process-local. One Render instance, so a dict is the whole design;
 # Redis is the upgrade path the day this runs more than one replica.
 
 _cache: dict[str, tuple[float, dict]] = {}

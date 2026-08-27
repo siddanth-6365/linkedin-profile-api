@@ -15,7 +15,7 @@ VOYAGER_BASE = "https://www.linkedin.com/voyager/api"
 def load_env(path: str | Path = ".env") -> None:
     """Read a .env into os.environ without taking a dependency for it.
 
-    Existing environment variables win, so Railway's dashboard values are never
+    Existing environment variables win, so Render's dashboard values are never
     shadowed by a stray local file.
     """
     try:

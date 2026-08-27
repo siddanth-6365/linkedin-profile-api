@@ -420,20 +420,30 @@ regression test. No real profile data is committed.
 
 ## Deploy
 
-Railway, from this repo's `Dockerfile`:
+[Render](https://dashboard.render.com/), from this repo's `Dockerfile` and
+[`render.yaml`](render.yaml) — no CLI needed:
 
-```bash
-npm i -g @railway/cli && railway login
-railway init && railway up
-```
+1. **New → Blueprint**, connect this GitHub repo. Render reads `render.yaml`.
+2. It prompts for the three secrets, because each is declared `sync: false` rather than
+   given a value in the file. Paste them there — they live only in the dashboard:
 
-Then set `LI_AT`, `LI_JSESSIONID` and `API_KEY` in **Railway's dashboard** (Variables tab)
-rather than via `railway variables --set`, which would leave the session cookie in your
-shell history. Generate a public domain under Settings → Networking; `railway.json` points
-the health check at `/healthz`.
+   | Variable | Where it comes from |
+   | --- | --- |
+   | `LI_AT` | the `li_at` cookie from a logged-in linkedin.com session |
+   | `LI_JSESSIONID` | the `JSESSIONID` cookie from that same session |
+   | `API_KEY` | any secret you choose; callers send it as `X-API-Key` |
 
-The container reads Railway's injected `$PORT` and binds `0.0.0.0`, and runs as a
-non-root user.
+3. Deploy. Render serves it over HTTPS at `https://<service>.onrender.com` and health-checks
+   `/healthz`.
+
+To change a cookie later: dashboard → the service → Environment → edit → save, which
+redeploys. Nothing sensitive ever goes through git or a shell history.
+
+The container binds `0.0.0.0` on Render's injected `$PORT` and runs as a non-root user.
+
+**Free-tier caveat:** the instance spins down after inactivity, so the first request after
+an idle period takes roughly 50 seconds while it wakes. Subsequent requests are normal.
+`/healthz` is the cheapest way to wake it before a demo.
 
 ### Secrets
 

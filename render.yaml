@@ -1,0 +1,20 @@
+# Render Blueprint. In the dashboard: New > Blueprint, point it at this repo.
+# https://render.com/docs/blueprint-spec
+services:
+  - name: linkedin-profile-api
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      # sync: false keeps these OUT of the repository — Render prompts for each
+      # value when the Blueprint is first created, and thereafter they live only
+      # in the dashboard. Never give any of these a `value:` here.
+      - key: LI_AT
+        sync: false
+      - key: LI_JSESSIONID
+        sync: false
+      - key: API_KEY
+        sync: false
