@@ -21,6 +21,7 @@ an OAuth partner review.
 
 - [Quick start](#quick-start) · [Getting the cookies](#getting-the-cookies)
 - [API reference](#api-reference) · [Response schema](#response-schema)
+- [Why not the official API?](#why-not-the-official-api) — the question this answers first
 - [Approach](#approach-how-this-was-reverse-engineered) — the interesting part
 - [Protecting the account](#protecting-the-linkedin-account)
 - [Known limitations](#known-limitations) · [Tests](#tests) · [Deploy](#deploy)
@@ -196,6 +197,37 @@ that were actually fetched. A partial result is never dressed up as a complete o
 The response is assembled as plain dicts rather than validated through strict response
 models on the way out. That is on purpose: this is an undocumented upstream, and a strict
 model meeting one unexpected field shape would turn an otherwise-good profile into a 500.
+
+---
+
+## Why not the official API?
+
+LinkedIn does have official APIs — [Accessing LinkedIn APIs](https://www.linkedin.com/help/linkedin/answer/a526048)
+— and they cannot do this. Worth stating up front, because it is the first question this
+project should have to answer.
+
+| Official route | What it returns | Whose data |
+| --- | --- | --- |
+| [Sign In with LinkedIn (OIDC)](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/sign-in-with-linkedin-v2), self-service | `sub`, `name`, `given_name`, `family_name`, `picture`, `locale`, `email`. Seven fields — no experience, education, skills, certifications, about or location. | Only the member who just signed into *your* app. |
+| [Profile API](https://learn.microsoft.com/en-us/linkedin/shared/integrations/people/profile-api), enterprise/partner | More fields, but access is "restricted to those developers approved by LinkedIn", each call is made "on behalf of a user" via OAuth, and "you may never store data returned from the Profile API for members other than the authenticated member". | Only members who granted *your* app consent. |
+
+**No official endpoint, at any tier or any price, accepts an arbitrary profile URL and
+returns that person's profile.** That capability does not exist officially; preventing it
+is what LinkedIn has litigated over (*hiQ Labs v. LinkedIn*). So the brief — accept a
+profile URL, return what is on the profile page — is not satisfiable through official
+channels. This is not the unofficial route chosen for convenience; it is the only route
+that answers the question asked.
+
+That leaves the private API linkedin.com's own front end calls. **Voyager is not a third
+option or a semi-official product: it is that front end's backend.** Loading a profile in
+a browser fires a burst of `/voyager/api/...` requests carrying your session cookie.
+Reverse-engineering it means reading those calls and replaying them server-side — the same
+mechanism behind the PhantomBuster scraper the brief gives as its example.
+
+The trade-off is real and is stated in [limitations](#known-limitations): this is against
+LinkedIn's User Agreement, which is why it belongs in a hiring exercise run with a burner
+account at hand-scale volume. A production system needing third-party profile data would
+license it from a data vendor rather than run this.
 
 ---
 
