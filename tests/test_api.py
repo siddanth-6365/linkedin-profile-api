@@ -12,12 +12,21 @@ from linkedin_profile_api import api, voyager
 
 @pytest.fixture(autouse=True)
 def clean_state(monkeypatch):
-    """Module-level cache and budget would otherwise leak between tests."""
+    """Isolate from module-level state and from the developer's own .env.
+
+    api.py calls config.load_env() at import, so a real .env on the machine
+    running the tests would otherwise decide whether a session looks configured.
+    That passed in CI (no .env there) and failed locally, which is precisely the
+    wrong way round for a test to behave.
+    """
     voyager._cache.clear()
     voyager._slug_locks.clear()
     voyager._budget.update(count=0)
+    for name in ("LI_AT", "LI_JSESSIONID", "LI_COOKIE"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("API_KEY", "")
     monkeypatch.setenv("MIN_REQUEST_INTERVAL", "0")
+    monkeypatch.setenv("SECTION_DELAY", "0")
     yield
     voyager._cache.clear()
 
@@ -41,9 +50,7 @@ def stub_linkedin(monkeypatch, payloads):
     return calls
 
 
-def test_healthz_reports_capability_without_leaking_secrets(client, monkeypatch):
-    monkeypatch.setenv("LI_AT", "")
-    monkeypatch.setenv("LI_JSESSIONID", "")
+def test_healthz_reports_capability_without_leaking_secrets(client):
     body = client.get("/healthz").json()
     assert body["status"] == "ok"
     assert body["linkedin_session_configured"] is False
@@ -192,3 +199,55 @@ def test_sections_are_fetched_serially_not_burst():
     source = inspect.getsource(voyager._fetch_sections)
     assert "asyncio.gather" not in source, "section calls must not run concurrently"
     assert "section_delay" in source, "section calls must be spaced"
+
+
+@pytest.mark.parametrize("total", [2, 25, 47])
+def test_sections_follow_linkedin_pagination(monkeypatch, total):
+    """Voyager pages sections at 20 and reports the real size in paging.total.
+
+    Reading page one only would return a complete-looking answer that quietly
+    drops everything past the twentieth entry.
+    """
+    import asyncio
+
+    PAGE = 20
+
+    async def fake_get(_client, _path, params, _what):
+        start = int(params.get("start", 0))
+        urns = [f"urn:li:fsd_profileSkill:(x,{i})" for i in range(start, min(start + PAGE, total))]
+        return {
+            "data": {"*elements": urns, "paging": {"start": start, "count": PAGE, "total": total}},
+            "included": [
+                {"entityUrn": urn, "$type": "...Skill", "name": f"skill{i}"}
+                for i, urn in enumerate(urns, start=start)
+            ],
+        }
+
+    monkeypatch.setattr(voyager, "_get", fake_get)
+    monkeypatch.setenv("SECTION_DELAY", "0")
+    merged, note = asyncio.run(voyager._fetch_section(None, "skills", "profileSkills", "urn:x"))
+
+    assert note is None
+    assert len(merged["data"]["*elements"]) == total, "every page must be collected"
+    assert len(merged["included"]) == total
+    assert len(set(e["entityUrn"] for e in merged["included"])) == total, "no duplicates"
+
+
+def test_pagination_stops_and_says_so(monkeypatch):
+    """A cap exists so a paging bug cannot loop forever; it must be reported."""
+    import asyncio
+
+    async def fake_get(_client, _path, params, _what):
+        start = int(params.get("start", 0))
+        return {
+            "data": {
+                "*elements": [f"urn:x:{i}" for i in range(start, start + 20)],
+                "paging": {"start": start, "count": 20, "total": 10_000},
+            },
+            "included": [],
+        }
+
+    monkeypatch.setattr(voyager, "_get", fake_get)
+    monkeypatch.setenv("SECTION_DELAY", "0")
+    _merged, note = asyncio.run(voyager._fetch_section(None, "skills", "profileSkills", "urn:x"))
+    assert note is not None and "stopped at" in note

@@ -113,11 +113,19 @@ def find_profile(payload, index: dict[str, dict]) -> dict | None:
 # --- field helpers -----------------------------------------------------------
 
 def pick(entity, *keys):
-    """First key present and non-empty. LinkedIn renames fields; we shrug."""
+    """First key present and non-empty. LinkedIn renames fields; we shrug.
+
+    Strings are stripped here because this is the one place every field read
+    passes through, and LinkedIn's own data is not clean — Sundar Pichai's
+    profile genuinely stores `firstName: "Sundar "`, trailing space included.
+    A value that is only whitespace counts as absent.
+    """
     if not isinstance(entity, dict):
         return None
     for key in keys:
         value = entity.get(key)
+        if isinstance(value, str):
+            value = value.strip()
         if value not in (None, "", [], {}):
             return value
     return None
@@ -384,11 +392,12 @@ def _core(profile: dict, index: dict[str, dict]) -> dict:
     location = pick(profile, "location") or {}
     first = pick(profile, "firstName") or ""
     last = pick(profile, "lastName") or ""
+    full_name = " ".join(part for part in (first, last) if part)
     return _compact(
         {
             "first_name": first or None,
             "last_name": last or None,
-            "full_name": f"{first} {last}".strip() or None,
+            "full_name": full_name or None,
             "headline": pick(profile, "headline", "occupation"),
             "about": pick(profile, "summary", "about"),
             "location": _compact(
@@ -450,11 +459,19 @@ def normalize(
         rows = [row for row in rows if row]
         result[key] = rows
         counts[key] = len(rows)
+
+        # LinkedIn reports the true size in paging.total, so an empty or short
+        # section can be explained precisely rather than guessed at.
+        total = ((payload.get("data") or {}).get("paging") or {}).get("total")
+        if not rows and total == 0:
+            continue  # genuinely empty; nothing to warn about
         if not rows:
             warnings.append(
-                f"{key}: LinkedIn returned no entries — either the profile has none, "
-                "or it is not visible to this account."
+                f"{key}: LinkedIn returned no entries and no total — the section may not "
+                "be visible to this account."
             )
+        elif isinstance(total, int) and len(rows) < total:
+            warnings.append(f"{key}: parsed {len(rows)} of {total} entries LinkedIn reported.")
 
     result["_meta"] = {
         "source": "linkedin.voyager.identity.dash",

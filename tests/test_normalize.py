@@ -146,3 +146,29 @@ def test_no_null_noise(profile):
     """Absent fields are dropped, so a consumer can trust key presence."""
     assert all(value is not None for value in profile["experience"][1].values())
     assert "grade" not in profile["experience"][0]
+
+
+def test_linkedin_whitespace_is_cleaned(payloads):
+    """LinkedIn's own data is not clean: Sundar Pichai's profile really does
+    store firstName as "Sundar " with a trailing space, which produced a double
+    space in full_name. Every field read goes through pick(), so strip there."""
+    primary, sections = payloads
+    profile = next(
+        e for e in primary["included"] if e.get("$type", "").endswith("profile.Profile")
+    )
+    profile["firstName"], profile["lastName"] = "Ada ", " Lovelace "
+    profile["headline"] = "  Mathematician  "
+    result = normalize.normalize("x", "u", primary, sections)
+    assert result["profile"]["full_name"] == "Ada Lovelace"
+    assert result["profile"]["first_name"] == "Ada"
+    assert result["profile"]["headline"] == "Mathematician"
+
+
+def test_whitespace_only_field_counts_as_absent(payloads):
+    primary, sections = payloads
+    profile = next(
+        e for e in primary["included"] if e.get("$type", "").endswith("profile.Profile")
+    )
+    profile["summary"] = "   "
+    result = normalize.normalize("x", "u", primary, sections)
+    assert "about" not in result["profile"]

@@ -6,7 +6,10 @@ rather than a code change — `identity/profiles/{id}/profileView` answering
 410 Gone (it used to be *the* endpoint) is what that failure looks like.
 """
 
+import base64
+import json
 import os
+import secrets
 from pathlib import Path
 
 VOYAGER_BASE = "https://www.linkedin.com/voyager/api"
@@ -27,7 +30,13 @@ def load_env(path: str | Path = ".env") -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")  # cookies contain "="; split once
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        value = value.strip()
+        # Strip quotes only when they wrap the whole value: a pasted Cookie
+        # header can legitimately end in `"` (e.g. lidc="b=..."), and a blind
+        # strip would silently corrupt it.
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key.strip(), value)
 
 
 def _env(name: str, default: str) -> str:
@@ -140,13 +149,53 @@ SECTIONS: dict[str, str] = {
     "publications": "profilePublications",
 }
 
+# Must stay consistent with sec-ch-ua below: a UA claiming one Chrome version
+# while the client hints claim another is a worse signal than sending neither.
 USER_AGENT = _env(
     "LI_USER_AGENT",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
 )
 
 LI_LANG = _env("LI_LANG", "en_US")
+
+# Voyager's own client identifies itself on every call. Sending nothing where the
+# real front end sends these marks a request as not-a-browser for free, so they
+# are mirrored here. Defaults were read off a live voyager-web request; bump
+# LI_CLIENT_VERSION when it drifts (it moves every week or two).
+LI_CLIENT_VERSION = _env("LI_CLIENT_VERSION", "1.13.46243")
+# Keep this consistent with wherever the session was created: a cookie minted in
+# Asia/Calcutta paired with a UTC client is a free inconsistency to hand over.
+LI_TIMEZONE = _env("LI_TIMEZONE", "Asia/Calcutta")
+LI_TIMEZONE_OFFSET = _float("LI_TIMEZONE_OFFSET", 5.5)
+
+
+def _track_header() -> str:
+    return json.dumps(
+        {
+            "clientVersion": LI_CLIENT_VERSION,
+            "mpVersion": LI_CLIENT_VERSION,
+            "osName": "web",
+            "timezoneOffset": LI_TIMEZONE_OFFSET,
+            "timezone": LI_TIMEZONE,
+            "deviceFormFactor": "DESKTOP",
+            "mpName": "voyager-web",
+            "displayDensity": 2,
+            "displayWidth": 1920,
+            "displayHeight": 1080,
+        },
+        separators=(",", ":"),
+    )
+
+
+def page_instance() -> str:
+    """A per-request page instance urn, as the web client sends.
+
+    The trackingId is a fresh base64 16-byte value each time; a constant one
+    across thousands of requests would itself be the tell.
+    """
+    token = base64.b64encode(secrets.token_bytes(16)).decode()
+    return f"urn:li:page:d_flagship3_profile_view_base;{token}"
 
 
 def headers() -> dict[str, str]:
@@ -166,7 +215,19 @@ def headers() -> dict[str, str]:
         "accept-language": "en-US,en;q=0.9",
         "x-li-lang": LI_LANG,
         "x-restli-protocol-version": "2.0.0",
+        "x-li-track": _track_header(),
+        "x-li-page-instance": page_instance(),
         "csrf-token": csrf_token(),
+        # The fetch-metadata and client-hint headers a real Chrome sends. Absent
+        # on a bare HTTP client, and their absence is trivially detectable.
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-dest": "empty",
+        "sec-ch-ua": '"Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "priority": "u=1, i",
+        "dnt": "1",
         "referer": "https://www.linkedin.com/feed/",
     }
 

@@ -27,6 +27,10 @@ import httpx
 
 from . import config, normalize
 
+# ponytail: 5 pages = 100 entries per section, far past any real profile. A cap
+# exists at all so a paging bug cannot loop against LinkedIn indefinitely.
+MAX_SECTION_PAGES = 5
+
 
 class VoyagerError(Exception):
     """Upstream failure, carrying the status we should answer with."""
@@ -192,6 +196,60 @@ async def _fetch_primary(client: httpx.AsyncClient, slug: str) -> dict:
         raise
 
 
+def _paging(payload) -> dict:
+    data = payload.get("data") or {}
+    return data.get("paging") or {}
+
+
+async def _fetch_section(
+    client: httpx.AsyncClient, key: str, resource: str, profile_urn: str
+) -> tuple[dict, str | None]:
+    """One section, following LinkedIn's pagination to the end.
+
+    Voyager pages these at 20 (`paging.count`) and reports the true size in
+    `paging.total`. Reading only the first page silently truncates anyone with
+    more than twenty skills or positions — the kind of bug that looks like a
+    complete answer, which is the worst kind. Pages are merged into one synthetic
+    payload so the normalizer stays unaware that paging exists.
+    """
+    params = {"q": "viewee", "profileUrn": profile_urn}
+    first = await _get(client, f"identity/dash/{resource}", params, f"the {key} section")
+
+    elements = list(normalize.root_elements(first))
+    included = list(first.get("included") or [])
+    paging = _paging(first)
+    total = paging.get("total")
+    note = None
+
+    page = 0
+    while isinstance(total, int) and len(elements) < total and elements:
+        page += 1
+        if page > MAX_SECTION_PAGES:
+            note = (
+                f"{key}: stopped at {len(elements)} of {total} entries after "
+                f"{MAX_SECTION_PAGES} pages, to limit pressure on the account."
+            )
+            break
+        await asyncio.sleep(config.section_delay() + random.uniform(0, 0.4))  # noqa: S311
+        nxt = await _get(
+            client,
+            f"identity/dash/{resource}",
+            {**params, "start": len(elements), "count": paging.get("count") or 20},
+            f"the {key} section (page {page + 1})",
+        )
+        more = normalize.root_elements(nxt)
+        if not more:
+            break
+        elements.extend(more)
+        included.extend(nxt.get("included") or [])
+
+    merged = {
+        "data": {"*elements": elements, "paging": {**paging, "fetched": len(elements)}},
+        "included": included,
+    }
+    return merged, note
+
+
 async def _fetch_sections(
     client: httpx.AsyncClient, profile_urn: str
 ) -> tuple[dict[str, dict], list[str]]:
@@ -213,12 +271,9 @@ async def _fetch_sections(
         if index:
             await asyncio.sleep(config.section_delay() + random.uniform(0, 0.6))  # noqa: S311
         try:
-            payloads[key] = await _get(
-                client,
-                f"identity/dash/{resource}",
-                {"q": "viewee", "profileUrn": profile_urn},
-                f"the {key} section",
-            )
+            payloads[key], note = await _fetch_section(client, key, resource, profile_urn)
+            if note:
+                warnings.append(note)
         except SessionInvalid:
             # The session died mid-fetch; the remaining calls would only add
             # pressure to an account that is already in trouble.
@@ -328,12 +383,21 @@ async def check_session() -> dict:
             payload = await _get(client, "me", {}, "the session check")
         except VoyagerError as exc:
             return {"valid": False, "reason": exc.message, "error": exc.code}
-    holder = payload.get("data") or payload
-    profile = holder.get("miniProfile") or {}
+    # /me nests the member differently across API versions, so look for the
+    # shape (something with a name) rather than a fixed path.
+    candidates = [payload.get("data") or {}, *(payload.get("included") or [])]
+    candidates += [value for value in (payload.get("data") or {}).values() if isinstance(value, dict)]
+    member = next(
+        (c for c in candidates if isinstance(c, dict) and (c.get("firstName") or c.get("publicIdentifier"))),
+        {},
+    )
+    name = " ".join(
+        part.strip()
+        for part in (member.get("firstName") or "", member.get("lastName") or "")
+        if part.strip()
+    )
     return {
         "valid": True,
-        "authenticated_as": (
-            f"{profile.get('firstName', '')} {profile.get('lastName', '')}".strip() or None
-        ),
-        "public_id": profile.get("publicIdentifier"),
+        "authenticated_as": name or None,
+        "public_id": member.get("publicIdentifier"),
     }
