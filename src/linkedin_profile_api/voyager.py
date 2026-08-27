@@ -114,8 +114,16 @@ def cache_state() -> dict:
 
 def _raise_for_status(response: httpx.Response, what: str) -> None:
     status = response.status_code
-    if status < 400:
+    if status < 300:
         return
+    if 300 <= status < 400:
+        # Voyager redirects to the login page when the session is dead. Never
+        # follow it: the auth wall answers with a 403, or worse a 200 HTML page,
+        # either of which would be reported as some unrelated failure.
+        raise SessionInvalid(
+            f"LinkedIn redirected {what} to its login page (HTTP {status}), which means the "
+            "session is not valid. Refresh li_at and JSESSIONID from a logged-in browser."
+        )
     if status in (401, 403):
         raise SessionInvalid(
             f"LinkedIn rejected the session on {what} (HTTP {status}). The li_at cookie has "
@@ -229,8 +237,9 @@ async def fetch_raw(slug: str) -> tuple[dict, dict[str, dict], list[str]]:
     async with _fetch_gate:  # one LinkedIn conversation at a time
         _spend_budget()
         await _wait_turn()
+        # follow_redirects=False on purpose — see _raise_for_status.
         async with httpx.AsyncClient(
-            timeout=config.request_timeout(), follow_redirects=True
+            timeout=config.request_timeout(), follow_redirects=False
         ) as client:
             primary = await _fetch_primary(client, slug)
             profile = normalize.find_profile(primary, normalize.merge_index([primary]))

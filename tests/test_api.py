@@ -145,3 +145,27 @@ def test_debug_types_histograms_the_live_payload(client, stub_linkedin):
     assert body["public_id"] == "adalovelace"
     assert body["types"]["com.linkedin.voyager.dash.identity.profile.Position"] == 3
     assert body["section_item_counts"]["experience"] == 2
+
+
+@pytest.mark.parametrize("status", [200, 301, 302, 401, 403, 404, 429, 999, 410, 500])
+def test_status_mapping_covers_every_voyager_answer(status):
+    """A 3xx must map to session-invalid, not be followed to the login page.
+
+    Following the redirect is what a naive client does; the auth wall then
+    answers 403 — or 200 with an HTML page — and the real cause is lost.
+    """
+    import httpx
+
+    response = httpx.Response(status, text="{}", request=httpx.Request("GET", "https://x/"))
+    if status == 200:
+        voyager._raise_for_status(response, "a call")  # must not raise
+        return
+    with pytest.raises(voyager.VoyagerError) as caught:
+        voyager._raise_for_status(response, "a call")
+    expected = {
+        301: voyager.SessionInvalid, 302: voyager.SessionInvalid,
+        401: voyager.SessionInvalid, 403: voyager.SessionInvalid,
+        404: voyager.ProfileMissing,
+        429: voyager.RateLimited, 999: voyager.RateLimited,
+    }.get(status, voyager.VoyagerError)
+    assert type(caught.value) is expected
