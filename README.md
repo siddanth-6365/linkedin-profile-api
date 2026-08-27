@@ -20,6 +20,28 @@ sections fetched with zero failures, names, headlines, about text, locations and
 industries resolved through URN references, profile and banner images in four size
 variants each, and company logos on every position.
 
+### No browser, anywhere
+
+This is pure HTTP against LinkedIn's own endpoints. Nothing is rendered, driven or
+scraped from a page:
+
+| | |
+| --- | --- |
+| Runtime dependencies | `httpx`, `fastapi`, `uvicorn` — the entire list |
+| Browser automation (Playwright, Selenium, Puppeteer, webdriver, nodriver, cloudscraper) | none present |
+| HTML parsers (BeautifulSoup, lxml, html5lib) | none present |
+| `subprocess` / shell-out | none |
+| Outbound requests | one base URL, `https://www.linkedin.com/voyager/api` |
+| Parsing | `response.json()` only — no HTML is parsed at any point |
+
+The container is a `python:3.13-slim` image with three packages in it; there is no browser
+to launch. Verify with `grep -riE 'playwright|selenium|puppeteer|webdriver|bs4|lxml' src/`.
+
+A browser is used exactly once, by a human, outside the service: logging in to copy a
+session cookie into configuration — which is what "you may use your own LinkedIn
+credentials in the backend" describes. No browser exists in the request path, and none is
+launched, driven or embedded at any point.
+
 ---
 
 ## Contents
@@ -511,10 +533,14 @@ scraping would need residential proxies and a pool of accounts, which is out of 
 here; the honest mitigation at this scale is caching plus conservative pacing.
 
 **Not implemented.** Recommendations, endorsement detail, contact info, posts and activity
-are all reachable through neighbouring Voyager resources but were not part of the brief. A
-headless-browser fallback is the upgrade path if LinkedIn ever locks down the `dash`
-resources — it was skipped deliberately, since all ten are currently alive and Playwright
-would roughly quadruple the image size for a path that may never run.
+are all reachable through neighbouring Voyager resources but were not part of the brief.
+
+There is deliberately **no browser fallback**. Beyond being out of scope, it would defeat
+the point: the value of hitting the endpoints directly is that ten JSON requests cost a
+fraction of what rendering a page costs, and the response is already structured data. If
+LinkedIn ever withdraws the `dash` resources, the answer within these constraints is to
+find their replacement — `/debug/types` and `capture.py` exist for exactly that — not to
+start rendering pages.
 
 **Terms of service.** Automated collection of profile data is against LinkedIn's User
 Agreement, and their position on it has been litigated more than once. This is a technical
